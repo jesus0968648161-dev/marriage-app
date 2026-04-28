@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>婚姻存摺</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#FF8A80">
+    <style>
+        body { font-family: "Segoe UI", "Microsoft JhengHei", sans-serif; padding: 20px; font-size: 18px; background: linear-gradient(135deg,#FFE4E1,#E0F7FA); color:#444; overflow-x:hidden; min-height: 100vh; }
+        h1 { text-align: center; font-weight:600; color: #555; }
+        input, select, button { font-size: 18px; margin: 6px 0; padding: 10px; border-radius: 12px; border:1px solid #ddd; width: 100%; box-sizing: border-box; }
+        button { background:#FF8A80; color:white; border:none; cursor: pointer; transition: background 0.3s; }
+        button:hover { background: #FF5252; }
+        .container { max-width: 520px; margin: auto; }
+        .card { background:white; padding:20px; border-radius:20px; box-shadow:0 6px 15px rgba(0,0,0,0.08); margin-top:15px; }
+        label { font-size: 14px; color: #888; margin-top: 8px; display: block; }
+        .table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .table th { color:#888; font-weight:500; padding:8px; text-align: left; }
+        .table td { padding:10px; border-top:1px dashed #eee; vertical-align:top; font-size: 16px; }
+        .ring { font-size: 48px; text-align: center; margin-bottom:10px; animation: float 3s ease-in-out infinite; }
+        .balance { font-size:26px; text-align:center; margin-top:20px; font-weight:700; color: #333; }
+        .deposit { color:#4CAF50; font-weight: bold; }
+        .withdraw { color:#FF5252; font-weight: bold; }
+        .small-btn { font-size:12px; padding:4px 8px; width: auto; margin-right: 2px; background: #eee; color: #666; }
+        .clear-btn { background: #bbb; margin-top: 20px; font-size: 14px; }
+        @keyframes float { 0%{transform:translateY(0)} 50%{transform:translateY(-6px)} 100%{transform:translateY(0)} }
+        @keyframes heartbeat { 0%{transform:scale(1)} 25%{transform:scale(1.1)} 50%{transform:scale(1)} 75%{transform:scale(1.1)} 100%{transform:scale(1)} }
+        .heartbeat { animation: heartbeat 0.6s ease-in-out; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="ring">💍💍</div>
+    <h1><input id="partner" placeholder="配偶名字" style="width: 150px; border:none; background:transparent; text-align:center; border-bottom: 1px dashed #ccc; border-radius: 0;"> 的婚姻存摺</h1>
+
+    <div class="card">
+        <label>📅 日期</label>
+        <input type="date" id="date">
+        <label>💞 類型</label>
+        <select id="type"><option value="deposit">存款 (愛的行動)</option><option value="withdraw">提款 (衝突磨損)</option></select>
+        <label>🌷 摘要</label>
+        <select id="summary"></select>
+        <label>💰 金額</label>
+        <select id="amount"><option value="100">100</option><option value="300">300</option><option value="500">500</option><option value="1000">1000</option></select>
+        <label>📝 備註</label>
+        <input id="note" placeholder="寫下今天的小故事">
+        <button id="actionBtn" onclick="addRecord()">➕ 新增愛的紀錄</button>
+    </div>
+
+    <div class="balance" id="balanceBox">💝 目前結餘：<span id="balance">0</span></div>
+
+    <div class="card">
+        <label>🔍 篩選紀錄</label>
+        <select id="filter" onchange="render()"><option value="all">全部紀錄</option><option value="deposit">只看存款</option><option value="withdraw">只看提款</option></select>
+        <table class="table">
+            <thead><tr><th>日期</th><th>摘要</th><th>金額</th><th>操作</th></tr></thead>
+            <tbody id="records"></tbody>
+        </table>
+        <button class="clear-btn" onclick="clearAllData()">⚠️ 清空所有資料</button>
+    </div>
+</div>
+
+<script>
+    // --- PWA 註冊指令 ---
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js')
+                .then(reg => console.log('Service Worker 已註冊成功'))
+                .catch(err => console.log('註冊失敗：', err));
+        });
+    }
+
+    // --- 核心邏輯 (延續之前的進階版) ---
+    const STORAGE_KEY = "marriage_app_data";
+    const PARTNER_KEY = "marriage_partner_name";
+    let savedData = localStorage.getItem(STORAGE_KEY);
+    let records = savedData ? JSON.parse(savedData) : [{date:"5/16", type:"deposit", summary:"婚姻旅程開始", change:3000}];
+
+    document.getElementById("partner").value = localStorage.getItem(PARTNER_KEY) || "";
+    document.getElementById("partner").addEventListener("input", (e) => localStorage.setItem(PARTNER_KEY, e.target.value));
+
+    const depositOptions = ["肯定的言語","服務的行動","接收禮物","精心的時刻","身體的接觸"];
+    const withdrawOptions = ["爭執","猜疑","互相批評","冷暴力","疏忽承諾"];
+    const summarySelect = document.getElementById("summary");
+
+    function updateSummaryOptions() {
+        summarySelect.innerHTML = "";
+        let type = document.getElementById("type").value;
+        let options = type == "deposit" ? depositOptions : withdrawOptions;
+        options.forEach(text => {
+            let opt = document.createElement("option");
+            opt.value = text;
+            opt.textContent = text;
+            summarySelect.appendChild(opt);
+        });
+        document.getElementById("actionBtn").textContent = type == "withdraw" ? "➖ 減少愛的紀錄" : "➕ 新增愛的紀錄";
+    }
+    document.getElementById("type").addEventListener("change", updateSummaryOptions);
+    updateSummaryOptions();
+
+    function saveToLocal() { localStorage.setItem(STORAGE_KEY, JSON.stringify(records)); }
+
+    function addRecord() {
+        const type = document.getElementById("type").value;
+        if(type == "withdraw" && !confirm("⚠️ 確定要記錄提款嗎？")) return;
+        const rawDate = document.getElementById("date").value;
+        let d = rawDate ? new Date(rawDate) : new Date();
+        let dateDisplay = (d.getMonth() + 1) + "/" + d.getDate();
+        let summary = document.getElementById("summary").value;
+        let amount = parseInt(document.getElementById("amount").value);
+        let note = document.getElementById("note").value;
+        records.push({ date: dateDisplay, type: type, summary: summary + (note ? " (" + note + ")" : ""), change: type == "deposit" ? amount : -amount });
+        if(type == "deposit") {
+            document.getElementById("balanceBox").classList.add("heartbeat");
+            setTimeout(() => document.getElementById("balanceBox").classList.remove("heartbeat"), 600);
+        }
+        saveToLocal(); render(); document.getElementById("note").value = "";
+    }
+
+    function deleteRecord(i) { if(confirm("確定刪除嗎？")) { records.splice(i, 1); saveToLocal(); render(); } }
+
+    function render() {
+        let tbody = document.getElementById("records"); tbody.innerHTML = "";
+        let filter = document.getElementById("filter").value;
+        let totalBalance = 0;
+        records.forEach((r, i) => {
+            totalBalance += r.change;
+            if(filter != "all" && ((filter=="deposit" && r.change<0) || (filter=="withdraw" && r.change>0))) return;
+            let tr = document.createElement("tr");
+            tr.innerHTML = `<td>${r.date}</td><td class="${r.change >= 0 ? 'deposit' : 'withdraw'}">${r.summary}</td><td>${r.change.toLocaleString()}</td><td><button class="small-btn" onclick="deleteRecord(${i})">刪</button></td>`;
+            tbody.appendChild(tr);
+        });
+        document.getElementById("balance").innerText = totalBalance.toLocaleString();
+    }
+    function clearAllData() { if(confirm("確定清空嗎？")) { records = []; saveToLocal(); render(); } }
+    render();
+</script>
+</body>
+</html>

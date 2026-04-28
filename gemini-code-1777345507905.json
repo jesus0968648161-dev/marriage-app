@@ -1,0 +1,16 @@
+{
+  "name": "我們的婚姻存摺",
+  "short_name": "婚姻存摺",
+  "description": "記錄每一份愛之語存款",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#FFE4E1",
+  "theme_color": "#FF8A80",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3658/3658392.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
